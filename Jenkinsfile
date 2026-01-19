@@ -17,7 +17,7 @@ pipeline {
         stage('Run Container') {
             steps {
                 sh '''
-                docker run -d -p 5001:5000 --name test-container docker-hello
+                docker run -d -p 5001:8000 --name test-container docker-hello
                 '''
             }
         }
