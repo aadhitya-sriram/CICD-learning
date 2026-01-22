@@ -2,11 +2,9 @@ pipeline {
     agent any
 
     environment {
+        DOCKERHUB_USER = "aadhitya08" 
         APP_NAME = "docker-hello"
-        K8S_NAMESPACE = "default"
-        SERVICE_NAME = "docker-hello-service"
-        DEPLOYMENT_NAME = "docker-hello"
-        CONTAINER_NAME = "app"
+        IMAGE_TAG = "${DOCKERHUB_USER}/${APP_NAME}:${BUILD_NUMBER}"
     }
 
     stages {
@@ -14,58 +12,33 @@ pipeline {
             steps { checkout scm }
         }
 
-        stage('Build Docker Image') {
+        stage('Build & Push Image') {
             steps {
-                sh '''
-                docker build -t ${APP_NAME}:${BUILD_NUMBER} .
-                '''
-            }
-        }
-
-        stage('Load Image into Minikube') {
-            steps {
-                sh '''
-                # Load the image from Jenkins Docker daemon into Minikube
-                minikube image load ${APP_NAME}:${BUILD_NUMBER}
-                '''
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                        sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                        sh "docker build -t ${IMAGE_TAG} ."
+                        sh "docker push ${IMAGE_TAG}"
+                    }
+                }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
+                # 1. Apply the Deployment/Service YAMLs
                 kubectl apply -f k8s/
 
-                # Update the running deployment to the new image tag
-                kubectl set image deployment/${DEPLOYMENT_NAME} \
-                  ${CONTAINER_NAME}=${APP_NAME}:${BUILD_NUMBER} \
-                  -n ${K8S_NAMESPACE}
+                # 2. Update the deployment to use the new image from Docker Hub
+                kubectl set image deployment/docker-hello \
+                  app=${IMAGE_TAG} \
+                  -n default
 
-                # Wait for rollout
-                kubectl rollout status deployment/${DEPLOYMENT_NAME} -n ${K8S_NAMESPACE} --timeout=120s
+                # 3. Wait for it to finish
+                kubectl rollout status deployment/docker-hello -n default --timeout=60s
                 '''
             }
-        }
-
-        stage('Health Check') {
-            steps {
-                sh '''
-                # Get the service URL from minikube and hit /health
-                URL=$(minikube service ${SERVICE_NAME} --url)
-                echo "Service URL: $URL"
-                curl -f "$URL/health"
-                '''
-            }
-        }
-    }
-
-    post {
-        always {
-            sh '''
-            # Keep the cluster clean-ish (optional): show state for debugging
-            kubectl get pods -n ${K8S_NAMESPACE} || true
-            kubectl get svc -n ${K8S_NAMESPACE} || true
-            '''
         }
     }
 }
