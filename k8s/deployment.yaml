@@ -14,6 +14,29 @@ spec:
     spec:
       containers:
       - name: app
-        image: docker-hello
+        image: docker-hello:1.0
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
+
+
+
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: docker-hello
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: docker-hello
+#   template:
+#     metadata:
+#       labels:
+#         app: docker-hello
+#     spec:
+#       containers:
+#       - name: app
+#         image: docker-hello
+#         ports:
+#         - containerPort: 8000
