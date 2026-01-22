@@ -5,6 +5,7 @@ pipeline {
         DOCKERHUB_USER = "aadhitya08" 
         APP_NAME = "docker-hello"
         IMAGE_TAG = "${DOCKERHUB_USER}/${APP_NAME}:${BUILD_NUMBER}"
+        KUBECONFIG = "/Users/aadhitya/.kube/config"
     }
 
     stages {
